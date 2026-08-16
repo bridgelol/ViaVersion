@@ -75,6 +75,7 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
     protected final PacketMappings clientboundMappings;
     protected final PacketMappings serverboundMappings;
     private final Map<Class<?>, Object> storedObjects = new HashMap<>();
+    private final boolean maySkipUnregisteredPackets;
     private boolean initialized;
     private ProtocolLogger logger;
     private ProtocolVersion serverVersion;
@@ -98,6 +99,20 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         this.packetTypesProvider = createPacketTypesProvider();
         this.clientboundMappings = createClientboundPacketMappings();
         this.serverboundMappings = createServerboundPacketMappings();
+        this.maySkipUnregisteredPackets = computeMaySkipUnregisteredPackets();
+    }
+
+    private boolean computeMaySkipUnregisteredPackets() {
+        Class<?> type = getClass();
+        while (type != AbstractProtocol.class && type != Object.class && type != null) {
+            try {
+                type.getDeclaredMethod("transform", Direction.class, State.class, PacketWrapper.class);
+                return false;
+            } catch (final NoSuchMethodException ignored) {
+                type = type.getSuperclass();
+            }
+        }
+        return true;
     }
 
     @Override
@@ -436,6 +451,11 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
     @Override
     public boolean hasRegisteredServerbound(State state, int unmappedPacketId) {
         return serverboundMappings.hasMapping(state, unmappedPacketId);
+    }
+
+    @Override
+    public boolean maySkipUnregisteredPackets() {
+        return maySkipUnregisteredPackets;
     }
 
     @Override
